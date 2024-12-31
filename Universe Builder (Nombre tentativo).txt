@@ -1,0 +1,15 @@
+Universe Builder (Nombre tentativo)
+
+UB es un juego Incremental con el objetivo de generar suficiente tierra para poder crear planetas, galaxias y por ultimo universos.
+Al generar una cantidad de universos, se genera un Big Bang, reiniciando todos los valores, pero dejando todos los multiplicadores.
+El juego deberia durar 1 hora y media en completarse.
+
+Objetivos:
+Crear auto generadores, donde el juego automaticamente va gerando tierra por su cuenta.
+El juego debe tener un "reinicio suave" por cada universo creado.
+El juego debe tener un "reinicio fuerte" por cada Big Bang generado.
+El juego debe costar mas recursos por mas se avanza, asi mismo genera mas recursos segun mas se avanza.
+El juego debe tener retos para los jugadores, estos retos retornar puntos para invertirlos en mejoras pasivas.
+
+
+El juego en su totalidad deberia durar, maximo, 4 horas en completar al 100%.
