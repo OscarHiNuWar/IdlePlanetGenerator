@@ -37,12 +37,16 @@
             border-radius: 5px;
             font-size: 14px;
         }
+
+        #challenges {
+            margin-top: 20px;
+        }
     </style>
 </head>
 
 <body>
     <h1>Universe Builder</h1>
-    <p>Create your universe, one step at a time! Gen 1 rate: <span id="gen1">0</span></p>
+    <p>Create your universe, one step at a time!</p>
 
     <div id="timer">
         <div>Current Time: <span id="current-timer">0</span> seconds</div>
@@ -104,6 +108,13 @@
         </ul>
     </div>
 
+    <div id="challenges">
+        <h2>Challenges</h2>
+        <ul id="challenge-list">
+            <!-- Challenges will be dynamically added here -->
+        </ul>
+    </div>
+
     <script>
         // Resource counts
         let earthCount = 0;
@@ -117,6 +128,16 @@
             earthGenMultiplier: 1,
             upgrade1Cost: 5
         };
+
+        // Timer variables
+        let startTime = Date.now();
+
+        // Challenges
+        let challenges = [
+            { id: 1, description: "Generate 1,000 Earth in 60 seconds", completed: false, condition: () => earthCount >= 1000 },
+            { id: 2, description: "Create 5 Planets", completed: false, condition: () => planetCount >= 5 },
+            { id: 3, description: "Prestige twice", completed: false, condition: () => prestigePoints >= 2 }
+        ];
 
         // Generators
         let generators = [
@@ -149,7 +170,7 @@
         const createGalaxyBtn = document.getElementById('create-galaxy');
         const createUniverseBtn = document.getElementById('create-universe');
 
-        const gen1 = document.getElementById('gen1');
+
         const generatorEls = generators.map((_, index) => ({
             countEl: document.getElementById(`gen${index + 1}-count`),
             costEl: document.getElementById(`gen${index + 1}-cost`),
@@ -159,6 +180,8 @@
         const prestigePointsEl = document.getElementById('prestige-points');
         const prestigeButton = document.getElementById('prestige-button');
         const upgrade1CostEl = document.getElementById('upgrade-1-cost');
+
+        const challengeListEl = document.getElementById('challenge-list');
 
         // Update UI
         function updateUI() {
@@ -177,12 +200,30 @@
                 generatorEls[index].buttonEl.disabled = earthCount < gen.cost;
             });
 
-            gen1.textContent = formatNumber(generators[0].rate);
+
 
             // Update prestige UI
             prestigePointsEl.textContent = formatNumber(prestigePoints);
             prestigeButton.disabled = universeCount < 1;
             upgrade1CostEl.textContent = formatNumber(prestigeUpgrades.upgrade1Cost);
+
+            // Update timer
+            const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('current-timer').textContent = elapsedSeconds;
+
+            // Update challenges
+            challengeListEl.innerHTML = '';
+            challenges.forEach(challenge => {
+                const li = document.createElement('li');
+                li.textContent = challenge.description;
+                if (challenge.completed) {
+                    li.style.textDecoration = 'line-through';
+                } else if (challenge.condition()) {
+                    challenge.completed = true;
+                    li.style.textDecoration = 'line-through';
+                }
+                challengeListEl.appendChild(li);
+            });
         }
 
         // Auto Increment Earth from generators
@@ -195,11 +236,11 @@
 
         // Adjust planet and galaxy costs
         function planetCost() {
-            return 1000000 + planetCount * 50000; // Increment cost by 50k per planet
+            return 1000000 + (planetCount * 50000); // Increment cost by 50k per planet
         }
 
         function galaxyCost() {
-            return 10 + galaxyCount * 2; // Increment cost per galaxy
+            return 10 + (galaxyCount * 2); // Increment cost per galaxy
         }
 
         // Buy generator
