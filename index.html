@@ -59,6 +59,7 @@
         <div class="resource">Planets: <span id="planet-count">0</span></div>
         <div class="resource">Galaxies: <span id="galaxy-count">0</span></div>
         <div class="resource">Universes: <span id="universe-count">0</span></div>
+        <div class="resource">Big Bangs: <span id="bigbang-count">0</span></div>
     </div>
 
     <div id="actions">
@@ -141,12 +142,12 @@
 
         // Generators
         let generators = [
-            { count: 1, cost: 10, rate: 1, lastUpgrade: 0, defaultCost: 10, defaultRate: 1 },
-            { count: 0, cost: 600, rate: 10, lastUpgrade: 0, defaultCost: 300, defaultRate: 10 },
-            { count: 0, cost: 16000, rate: 100, lastUpgrade: 0, defaultCost: 10000, defaultRate: 100 },
-            { count: 0, cost: 400000, rate: 1000, lastUpgrade: 0, defaultCost: 25000, defaultRate: 1000 },
-            { count: 0, cost: 3500000, rate: 10000, lastUpgrade: 0, defaultCost: 300000, defaultRate: 10000 },
-            { count: 0, cost: 85000000, rate: 100000, lastUpgrade: 0, defaultCost: 9000000, defaultRate: 100000 }
+            { count: 1, cost: 10, rate: 20, lastUpgrade: 0, defaultCost: 10, defaultRate: 20 },
+            { count: 0, cost: 150, rate: 50, lastUpgrade: 0, defaultCost: 150, defaultRate: 50 },
+            { count: 0, cost: 2000, rate: 200, lastUpgrade: 0, defaultCost: 2000, defaultRate: 200 },
+            { count: 0, cost: 40000, rate: 1000, lastUpgrade: 0, defaultCost: 25000, defaultRate: 1000 },
+            { count: 0, cost: 350000, rate: 10000, lastUpgrade: 0, defaultCost: 30000, defaultRate: 10000 },
+            { count: 0, cost: 8500000, rate: 100000, lastUpgrade: 0, defaultCost: 900000, defaultRate: 100000 }
         ];
 
         // Formatting large numbers for readability
@@ -318,6 +319,61 @@
         generatorEls.forEach((genEl, index) => {
             genEl.buttonEl.addEventListener('click', () => buyGenerator(index));
         });
+
+        // Añadir al inicio (junto a prestige variables)
+        let bigBangCount = 0;
+        const bigBangUpgrades = {
+            0: 2, // Multiplicador base para el generador 0
+            // Agregar más generadores aquí cuando necesites
+        };
+
+        // Modificar la sección de creación de universos
+        createUniverseBtn.addEventListener("click", () => {
+            if (galaxyCount >= 10) {
+                galaxyCount -= 10;
+                universeCount++;
+
+                // Verificar Big Bang
+                if (universeCount >= 10) {
+                    activateBigBang();
+                } else {
+                    prestigeReset();
+                }
+            }
+        });
+
+        // Añadir función de Big Bang
+        function activateBigBang() {
+            bigBangCount++;
+            universeCount = 0;
+            resetGame();
+
+            // Aplicar mejoras a los generadores configurados
+            Object.keys(bigBangUpgrades).forEach(genIndex => {
+                generators[genIndex].defaultRate *= bigBangUpgrades[genIndex];
+                generators[genIndex].rate = generators[genIndex].defaultRate;
+            });
+
+            alert(`¡BIG BANG #${bigBangCount}! Generadores mejorados`);
+        }
+
+        // Modificar la función resetGame para mantener mejoras
+        function resetGame() {
+            earthCount = 0;
+            planetCount = 0;
+            galaxyCount = 0;
+
+            generators.forEach((gen, index) => {
+                gen.count = index === 0 ? 1 : 0;
+                gen.cost = gen.defaultCost;
+                gen.rate = gen.defaultRate * (bigBangUpgrades[index] || 1) ** bigBangCount;
+                gen.lastUpgrade = 0;
+            });
+        }
+
+        // Añadir en updateUI para mostrar Big Bang info
+        // Dentro de updateUI(), buscar donde se muestran los puntos de prestigio y añadir:
+        document.getElementById("bigbang-count").textContent = bigBangCount;
 
         prestigeButton.addEventListener('click', prestigeReset);
         document.getElementById('prestige-upgrade-1').addEventListener('click', () => buyPrestigeUpgrade(1));
