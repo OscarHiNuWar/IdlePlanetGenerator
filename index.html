@@ -1,287 +1,272 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Incremental Game: Universe Builder</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
-        }
-        .resource {
-            margin: 10px 0;
-        }
-        .button {
-            margin: 5px;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-        .generator {
-            margin: 10px 0;
-        }
-        #timer {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #f0f0f0;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 5px;
-            font-size: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego Incremental - Calabozo</title>
+  <style>
+    /* Estilos generales y móviles */
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; background-color: #1e1e1e; color: #f5f5f5; margin: 0; padding: 10px; }
+    .container { max-width: 500px; margin: auto; }
+    header, .stats, .enemy-info, .log { background-color: #2e2e2e; padding: 10px; margin-bottom: 10px; border-radius: 5px; }
+    h1, h2 { margin: 0 0 5px; text-align: center; }
+    p { margin: 5px 0; font-size: 0.9em; }
+    button { background-color: #444; color: #f5f5f5; border: none; padding: 8px 12px; cursor: pointer; border-radius: 3px; font-size: 0.9em; margin: 5px 2px; }
+    button:hover { background-color: #666; }
+    /* Barra de vida */
+    .health-bar-container { background-color: #555; width: 100%; height: 20px; border-radius: 10px; overflow: hidden; margin-bottom: 5px; }
+    .health-bar { background-color: #e74c3c; height: 100%; width: 100%; transition: width 0.3s ease; }
+    /* Log compacto con scroll */
+    #combatLog { height: 150px; overflow-y: auto; background-color: #1e1e1e; padding: 5px; border: 1px solid #444; border-radius: 3px; font-size: 0.85em; }
+  </style>
 </head>
 <body>
-    <h1>Universe Builder</h1>
-    <p>Create your universe, one step at a time! Gen 1 rate: <span id="gen1">0</span></p>
+  <div class="container">
+    <header>
+      <h1>Calabozo</h1>
+      <p>Combate automático contra monstruos y jefes</p>
+    </header>
+    <section class="stats">
+      <h2>Estadísticas</h2>
+      <p>Ataque: <span id="playerAttack">10</span></p>
+      <p>Crit: <span id="playerCritProb">20%</span> | Daño Crítico: <span id="playerCritDamage">200%</span></p>
+      <p>Vel. Ataque: <span id="playerAttackSpeed">1</span>s</p>
+      <p>Piso: <span id="currentFloor">1</span> | Combate: <span id="currentBattle">0</span></p>
+      <p>Oro: <span id="playerGold">0</span></p>
+      <p>Nivel: <span id="playerLevel">1</span> | Costo Nivel: <span id="levelCost">100</span></p>
+      <button id="upgradeLevel">Subir Nivel</button>
+    </section>
+    <section class="enemy-info">
+      <h2>Enemigo</h2>
+      <p>Tipo: <span id="enemyTypeLabel">-</span></p>
+      <div class="health-bar-container">
+        <div class="health-bar" id="enemyHealthBar"></div>
+      </div>
+      <p>HP: <span id="enemyHPLabel">0</span></p>
+      <!-- Elemento para mostrar el tiempo restante del jefe -->
+      <p id="bossTimerContainer" style="display: none;">Tiempo Restante: <span id="bossTimerLabel"></span>s</p>
+    </section>
+    <section class="log">
+      <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin:0;">Registro de Combate</h2>
+        <button id="toggleLog">Ocultar</button>
+      </div>
+      <div id="combatLog"></div>
+    </section>
+    <button id="startGame" hidden>Iniciar Juego</button>
+  </div>
 
-    <div id="timer">
-        <div>Current Time: <span id="current-timer">0</span> seconds</div>
-        <div>Previous Times:</div>
-        <ul id="previous-times"></ul>
-    </div>
 
-    <div id="resources">
-        <div class="resource">Earth: <span id="earth-count">0</span></div>
-        <div class="resource">Planets: <span id="planet-count">0</span></div>
-        <div class="resource">Galaxies: <span id="galaxy-count">0</span></div>
-        <div class="resource">Universes: <span id="universe-count">0</span></div>
-    </div>
+  <script>
+    // Atributos del jugador
+    const player = {
+      attack: 15,
+      critProb: 0.02,      // 20% de probabilidad de crítico
+      critDamage: 1.0,    // 200% de daño en crítico
+      attackSpeed: 3000,  // En milisegundos (1 segundo)
+      gold: 0,
+      level: 1,
+      levelCost: 2     // Costo inicial para subir de nivel
+    };
 
-    <div id="actions">
-        <button class="button" id="create-earth">Create Earth</button>
-        <button class="button" id="create-planet" disabled>Create Planet</button>
-        <button class="button" id="create-galaxy" disabled>Create Galaxy</button>
-        <button class="button" id="create-universe" disabled>Create Universe</button>
-    </div>
+    let currentFloor = 1;
+    let currentBattle = 0;
+    let isBossBattle = false;
+    const bossTimeLimit = 30000; // 30 segundos en milisegundos
+    let bossTimer = null;
+    let combatInterval = null;
 
-    <div id="generators">
-        <h2>Earth Generators</h2>
-        <div class="generator">
-            Generator 1: <span id="gen1-count">0</span> 
-            <button class="button" id="buy-gen1">Buy (Cost: <span id="gen1-cost">10</span> Earth)</button>
-        </div>
-        <div class="generator">
-            Generator 2: <span id="gen2-count">0</span> 
-            <button class="button" id="buy-gen2">Buy (Cost: <span id="gen2-cost">100</span> Earth)</button>
-        </div>
-        <div class="generator">
-            Generator 3: <span id="gen3-count">0</span> 
-            <button class="button" id="buy-gen3">Buy (Cost: <span id="gen3-cost">1000</span> Earth)</button>
-        </div>
-        <div class="generator">
-            Generator 4: <span id="gen4-count">0</span> 
-            <button class="button" id="buy-gen4">Buy (Cost: <span id="gen4-cost">10000</span> Earth)</button>
-        </div>
-        <div class="generator">
-            Generator 5: <span id="gen5-count">0</span> 
-            <button class="button" id="buy-gen5">Buy (Cost: <span id="gen5-cost">100000</span> Earth)</button>
-        </div>
-        <div class="generator">
-            Generator 6: <span id="gen6-count">0</span> 
-            <button class="button" id="buy-gen6">Buy (Cost: <span id="gen6-cost">1000000</span> Earth)</button>
-        </div>
-    </div>
+    // Variables para el enemigo actual
+    let enemy = { hp: 0, maxHP: 0, type: '' };
 
-    <div id="challenges">
-        <h2>Challenges</h2>
-        <ul id="challenge-list"></ul>
-    </div>
+    // Elementos del DOM
+    // Elementos del DOM
+    const playerAttackEl = document.getElementById('playerAttack');
+    const playerCritProbEl = document.getElementById('playerCritProb');
+    const playerCritDamageEl = document.getElementById('playerCritDamage');
+    const playerAttackSpeedEl = document.getElementById('playerAttackSpeed');
+    const currentFloorEl = document.getElementById('currentFloor');
+    const currentBattleEl = document.getElementById('currentBattle');
+    const playerGoldEl = document.getElementById('playerGold');
+    const playerLevelEl = document.getElementById('playerLevel');
+    const levelCostEl = document.getElementById('levelCost');
 
-    <script>
-        // Resource counts
-        let earthCount = 0;
-        let planetCount = 0;
-        let galaxyCount = 0;
-        let universeCount = 0;
+    const enemyTypeLabelEl = document.getElementById('enemyTypeLabel');
+    const enemyHPLabelEl = document.getElementById('enemyHPLabel');
+    const enemyHealthBarEl = document.getElementById('enemyHealthBar');
+    const bossTimerContainerEl = document.getElementById('bossTimerContainer');
+    const bossTimerLabelEl = document.getElementById('bossTimerLabel');
 
-        // Timer variables
-        let timerRunning = false;
-        let timerStart = 0;
-        let currentTime = 0;
-        let previousTimes = [];
+    const combatLogEl = document.getElementById('combatLog');
+    const startGameBtn = document.getElementById('startGame');
+    const upgradeLevelBtn = document.getElementById('upgradeLevel');
+    const toggleLogBtn = document.getElementById('toggleLog');
 
-        let generators = [
-            { count: 0, cost: 10, rate: 1, lastUpgrade: 0, defaultCost: 10, defaultRate: 1, upgradedRate: 0 },
-            { count: 0, cost: 100, rate: 10, lastUpgrade: 0, defaultCost: 100, defaultRate: 10, upgradedRate: 0 },
-            { count: 0, cost: 1000, rate: 100, lastUpgrade: 0, defaultCost: 1000, defaultRate: 100, upgradedRate: 0 },
-            { count: 0, cost: 10000, rate: 1000, lastUpgrade: 0, defaultCost: 10000, defaultRate: 1000, upgradedRate: 0 },
-            { count: 0, cost: 100000, rate: 10000, lastUpgrade: 0, defaultCost: 100000, defaultRate: 10000, upgradedRate: 0 },
-            { count: 0, cost: 1000000, rate: 100000, lastUpgrade: 0, defaultCost: 1000000, defaultRate: 100000, upgradedRate: 0 }
-        ];
+    // Actualiza las estadísticas en el DOM
+    function updateStats() {
+      playerAttackEl.textContent = player.attack;
+      playerCritProbEl.textContent = (player.critProb * 100).toFixed(2) + '%';
+      playerCritDamageEl.textContent = (player.critDamage * 100) + '%';
+      playerAttackSpeedEl.textContent = (player.attackSpeed / 1000);
+      currentFloorEl.textContent = currentFloor;
+      currentBattleEl.textContent = currentBattle;
+      playerGoldEl.textContent = player.gold;
+      playerLevelEl.textContent = player.level;
+      levelCostEl.textContent = player.levelCost;
+    }
 
-        // DOM elements
-        const earthCountEl = document.getElementById('earth-count');
-        const planetCountEl = document.getElementById('planet-count');
-        const galaxyCountEl = document.getElementById('galaxy-count');
-        const universeCountEl = document.getElementById('universe-count');
+    // Actualiza la barra de vida del enemigo y su etiqueta de HP
+    function updateEnemyBar() {
+      const percentage = (enemy.hp / enemy.maxHP) * 100;
+      enemyHealthBarEl.style.width = percentage + '%';
+      enemyHPLabelEl.textContent = Math.floor(enemy.hp) + ' / ' + enemy.maxHP;
+    }
 
-        const createEarthBtn = document.getElementById('create-earth');
-        const createPlanetBtn = document.getElementById('create-planet');
-        const createGalaxyBtn = document.getElementById('create-galaxy');
-        const createUniverseBtn = document.getElementById('create-universe');
+    // Agrega mensajes al registro de combate
+    function logMessage(message) {
+      const p = document.createElement('p');
+      p.textContent = message;
+      combatLogEl.appendChild(p);
+      combatLogEl.scrollTop = combatLogEl.scrollHeight;
+    }
 
-        const currentTimerEl = document.getElementById('current-timer');
-        const previousTimesEl = document.getElementById('previous-times');
+    // Alterna visibilidad del registro de combate
+    function toggleLog() {
+      if (combatLogEl.style.display === 'none') {
+        combatLogEl.style.display = 'block';
+        toggleLogBtn.textContent = 'Ocultar';
+      } else {
+        combatLogEl.style.display = 'none';
+        toggleLogBtn.textContent = 'Mostrar';
+      }
+    }
 
-        const gen1 = document.getElementById('gen1');
+    // Función para simular el ataque del jugador
+    function playerAttack(target) {
+      let damage = player.attack;
+      if (Math.random() < player.critProb) {
+        damage *= player.critDamage;
+        logMessage('¡Golpe crítico!');
+      }
+      logMessage('El jugador inflige ' + damage.toFixed(2) + ' de daño.');
+      target.hp -= damage;
+      if (target.hp < 0) target.hp = 0;
+      updateEnemyBar();
+    }
 
-        const generatorEls = generators.map((_, index) => ({
-            countEl: document.getElementById(`gen${index + 1}-count`),
-            costEl: document.getElementById(`gen${index + 1}-cost`),
-            buttonEl: document.getElementById(`buy-gen${index + 1}`)
-        }));
+    // Función para calcular el nuevo costo de nivel
+    function calcularNuevoCosto(costoActual, pisoActual) {
+      // Calcula el incremento: 1% base + 1% del piso actual (redondeado hacia abajo)
+      const incremento = 1;
+      return Math.floor(costoActual + (1 + incremento));
+    }
 
-        // Update UI
-        function updateUI() {
-            earthCountEl.textContent = earthCount;
-            planetCountEl.textContent = planetCount;
-            galaxyCountEl.textContent = galaxyCount;
-            universeCountEl.textContent = universeCount;
-
-            createPlanetBtn.disabled = earthCount < 1000000;
-            createGalaxyBtn.disabled = planetCount < 10;
-            createUniverseBtn.disabled = galaxyCount < 10;
-
-            generators.forEach((gen, index) => {
-                if (gen.count > 0 && gen.count % 10 === 0 && gen.lastUpgrade !== gen.count) {
-                    gen.rate *= 2;
-                    gen.cost *= 2;
-                    gen.lastUpgrade = gen.count;
-                }
-                generatorEls[index].countEl.textContent = gen.count;
-                generatorEls[index].costEl.textContent = gen.cost;
-                generatorEls[index].buttonEl.disabled = earthCount < gen.cost;
-            });
-
-            gen1.textContent = generators[0].rate;
+    // Función para subir de nivel usando oro
+    function upgradeLevel() {
+      if (player.gold >= player.levelCost) {
+        player.gold -= player.levelCost;
+        player.level++;
+        const oneOfFour = Math.floor(Math.random() * 4) + 1;
+        if (oneOfFour === 1) {
+          player.attack += Math.floor(Math.random(currentFloor / 2)) + 1;
+          logMessage(`¡Has aumentado tu ataque en ${player.attack}!`);
+        } else if (oneOfFour === 2) {
+          player.critProb += 0.01;
+          logMessage(`¡Has aumentado tu probabilidad de crítico en ${player.critProb}%!`);
+        } else if (oneOfFour === 3) {
+          player.critDamage += 0.5;
+          logMessage('¡Has aumentado tu daño crítico en 50%!');
+        } else {
+            player.attackSpeed -= 100;
+            logMessage('¡Has aumentado tu velocidad de ataque en 0.1s!');
         }
+        // Actualiza el costo para el próximo nivel según la fórmula
+        player.levelCost = calcularNuevoCosto(player.levelCost, currentFloor);
+        logMessage('¡Nivel aumentado a ' + player.level + '!');
+        updateStats();
+      } else {
+        logMessage('No tienes suficiente oro para subir de nivel.');
+      }
+    }
 
-        // Start the timer
-        function startTimer() {
-            timerRunning = true;
-            timerStart = Date.now();
-            setInterval(() => {
-                currentTime = Math.floor((Date.now() - timerStart) / 1000);
-                document.getElementById('current-timer').textContent = formatTime(currentTime);
-            }, 1000);
+    // Inicia un combate
+    function startCombat() {
+      currentBattle++;
+      updateStats();
+      //let enemyHP = 100 * currentFloor;
+      //let enemyType = 'Monstruo';
+      // Definir enemigo según piso y tipo
+      enemy = { hp: 20 * currentFloor, maxHP: 20 * currentFloor, type: 'Monstruo' };
+
+
+      // Cada 5 combates se enfrenta a un jefe
+      if (currentBattle % 5 === 0) {
+        enemy = { hp: 100 * currentFloor, maxHP: 100 * currentFloor, type: 'Jefe' };
+        isBossBattle = true;
+        logMessage('¡Comienza combate contra ' + enemy.type + '!');
+        // Mostrar el temporizador y configurarlo
+        bossTimerContainerEl.style.display = 'block';
+        bossStartTime = Date.now();
+        bossTimer = setInterval(() => {
+          const elapsed = Date.now() - bossStartTime;
+          let remaining = Math.ceil((bossTimeLimit - elapsed) / 1000);
+          if (remaining < 0) remaining = 0;
+          bossTimerLabelEl.textContent = remaining;
+          if (elapsed >= bossTimeLimit) {
+            logMessage('¡Tiempo agotado! ' + enemy.type + ' no fue derrotado. Fin del juego.');
+            clearInterval(bossTimer);
+            clearInterval(combatInterval);
+            bossTimerContainerEl.style.display = 'none';
+            startGameBtn.disabled = false;
+            startGameBtn.click();
+          }
+        }, 1000);
+      } else {
+        isBossBattle = false;
+        bossTimerContainerEl.style.display = 'none';
+        logMessage('¡Comienza combate contra ' + enemy.type + '!');
+      }
+
+      enemyTypeLabelEl.textContent = enemy.type;
+      updateEnemyBar();
+
+      // Simula el combate automático
+      combatInterval = setInterval(() => {
+        if (enemy.hp <= 0) {
+          // Otorga oro al derrotar al enemigo (por ejemplo, 10 * piso actual)
+          const oroGanado = 10 * currentFloor;
+          player.gold += oroGanado;
+          logMessage(enemy.type + ' derrotado. Oro obtenido: ' + oroGanado);
+          clearInterval(combatInterval);
+          if (isBossBattle) {
+            clearInterval(bossTimer);
+            logMessage('¡Has derrotado al jefe y avanzado al siguiente piso!');
+            currentFloor++;
+          }
+          updateStats();
+          // Reinicia el combate con un pequeño retraso
+          setTimeout(startCombat, 2000);
+        } else {
+          playerAttack({ 
+            get hp() { return enemy.hp; }, 
+            set hp(val) { enemy.hp = val; }
+          });
         }
+      }, player.attackSpeed);
+    }
 
-        function formatTime(seconds) {
-            const days = Math.floor(seconds / (3600 * 24));
-            seconds %= 3600 * 24;
-            const hours = Math.floor(seconds / 3600);
-            seconds %= 3600;
-            const minutes = Math.floor(seconds / 60);
-            seconds %= 60;
-            return `${days}d ${hours}h ${minutes}m ${seconds}s`;
-        }
+    // Inicia el juego al hacer clic en el botón
+    /*startGameBtn.addEventListener('click', () => {
+      startGameBtn.disabled = true;
+      updateStats();
+      startCombat();
+    });*/
 
-        // Record the current time and reset the timer
-        function recordTime() {
-            previousTimes.push(currentTime);
-            const listItem = document.createElement('li');
-            listItem.textContent = `${currentTime} seconds`;
-            previousTimesEl.appendChild(listItem);
-            timerRunning = false;
-            currentTime = 0;
-        }
-
-
-        // Increment Earth from generators
-        function autoIncrement() {
-            generators.forEach(gen => {
-                earthCount += gen.count * gen.rate;
-            });
-            updateUI();
-        }
-
-        // Buy generator
-        function buyGenerator(index) {
-            const generator = generators[index];
-            if (earthCount >= generator.cost) {
-                earthCount -= generator.cost;
-                generator.count++;
-                generator.cost = Math.floor(generator.cost * 1.5);
-                updateUI();
-            }
-        }
-
-        // Button event listeners
-        createEarthBtn.addEventListener('click', () => {
-            if (!timerRunning) startTimer();
-            earthCount++;
-            updateUI();
-        });
-
-        createPlanetBtn.addEventListener('click', () => {
-            if (earthCount >= 1000000) {
-                earthCount -= 1000000;
-                planetCount++;
-                updateUI();
-            }
-        });
-
-        createGalaxyBtn.addEventListener('click', () => {
-            if (planetCount >= 10) {
-                planetCount -= 10;
-                galaxyCount++;
-                updateUI();
-            }
-        });
-
-        createUniverseBtn.addEventListener('click', () => {
-            if (galaxyCount >= 10) {
-                galaxyCount -= 10;
-                universeCount++;
-                resetGame();
-            }
-        });
-
-        generatorEls.forEach((genEl, index) => {
-            genEl.buttonEl.addEventListener('click', () => buyGenerator(index));
-        });
-
-        // Reset game for prestige
-        function resetGame() {
-            earthCount = 0;
-            planetCount = 0;
-            galaxyCount = 0;
-            generators.forEach(gen => {
-                gen.cost = gen.defaultCost;
-                gen.count = 0;
-                gen.upgradedRate = gen.defaultRate + Math.floor(gen.upgradedRate * 1.05); // Assuming rate is proportional to default cost
-                gen.rate = gen.upgradedRate;
-                gen.lastUpgrade = 0;
-            });
-            updateUI();
-        }
-
-        // Modular challenge system
-        const challenges = [
-            { description: 'Generate 1 Universe', condition: () => universeCount >= 1 },
-            { description: 'Generate 10 Galaxies', condition: () => galaxyCount >= 10 },
-            // Add more challenges as needed
-        ];
-
-        function checkChallenges() {
-            const challengeList = document.getElementById('challenge-list');
-            challengeList.innerHTML = '';
-            challenges.forEach(challenge => {
-                const listItem = document.createElement('li');
-                listItem.textContent = challenge.description;
-                if (challenge.condition()) {
-                    listItem.style.textDecoration = 'line-through';
-                }
-                challengeList.appendChild(listItem);
-            });
-        }
-
-        updateUI();
-        setInterval(autoIncrement, 100); // Auto increment every second
-    </script>
+    // Evento para subir de nivel
+    upgradeLevelBtn.addEventListener('click', upgradeLevel);
+    toggleLogBtn.addEventListener('click', toggleLog);
+    startCombat();
+  </script>
 </body>
 </html>
